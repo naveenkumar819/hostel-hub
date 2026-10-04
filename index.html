@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hostel Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#1b2a25;--mut:#64736d;--line:#dde3df;--pri:#0f7a5c;--pri2:#d8f0e6;--warn:#c77d0a;--bad:#c23b3b;--ok:#2c8a4b}
+@media (prefers-color-scheme:dark){:root{--bg:#101815;--card:#18231f;--ink:#e6efeb;--mut:#92a39b;--line:#2a3a34;--pri:#3ecf9e;--pri2:#173c30;--warn:#e3a53a;--bad:#ea6b6b;--ok:#5ac27c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+h1,h2,h3{font-family:'Bricolage Grotesque',Inter,sans-serif;margin:0}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+nav{display:flex;gap:4px;overflow-x:auto;padding:0 12px;background:var(--card);border-bottom:1px solid var(--line)}
+nav button{border:0;background:none;color:var(--mut);padding:12px 14px;font:500 15px Inter,sans-serif;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--pri);border-color:var(--pri)}
+main{max-width:1100px;margin:0 auto;padding:20px}
+.grid{display:grid;gap:14px}.k4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.k2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}.k3{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.big{font:700 28px 'Bricolage Grotesque',sans-serif}.mut{color:var(--mut);font-size:13px}.err{color:var(--bad);font-size:13px;min-height:18px}.okm{color:var(--ok);font-size:13px}
+.room{cursor:pointer;border-left:5px solid var(--ok);text-align:left;font:inherit;color:inherit}.room.full{border-left-color:var(--warn)}
+.tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:var(--pri2);color:var(--pri)}
+.tag.o{background:#fbe3e3;color:var(--bad)}.tag.p{background:#fcefd3;color:var(--warn)}.tag.r{background:#dcf2e3;color:var(--ok)}
+@media (prefers-color-scheme:dark){.tag.o{background:#4a2323}.tag.p{background:#463517}.tag.r{background:#1d3d29}}
+button.b,select,input,textarea{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+button.b{cursor:pointer;background:var(--pri);color:#fff;border-color:var(--pri)}button.b.s{background:var(--card);color:var(--ink);border-color:var(--line)}button.sm{padding:4px 9px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}th{color:var(--mut);font-weight:500}tr.today td{background:var(--pri2)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);width:min(760px,95vw);max-height:90vh;padding:18px}dialog::backdrop{background:#0008}
+.bar{height:8px;border-radius:5px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:var(--pri)}
+svg text{fill:var(--mut);font-size:11px}.sec{margin:22px 0 10px}
+.auth{display:grid;place-items:center;padding:30px 16px}.auth .card{width:min(400px,100%);display:grid;gap:10px}.auth input,.auth select{width:100%}
+</style></head><body>
+<header><div><h1>Hostel Hub</h1><div class="mut" id="who">Sign in to continue</div></div><button class="b s sm" id="lo" style="display:none" onclick="logout()">Log out</button></header>
+<div id="auth" class="auth"></div>
+<div id="shell" style="display:none"><nav id="nav"></nav><main id="app"></main></div>
+<dialog id="dlg"></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const $=s=>document.querySelector(s),dlg=$('#dlg');
+const setupErr=typeof CONFIG==='undefined'?'config.js was not found next to index.html. Extract the whole zip into a normal folder first (right-click > Extract All), then open index.html from that folder.':typeof supabase==='undefined'?'The Supabase library could not load. Check your internet connection.':/YOUR-PROJECT|YOUR-ANON/.test(CONFIG.SUPABASE_URL+CONFIG.SUPABASE_ANON_KEY)?'Open config.js in a text editor and paste your Supabase URL and anon key (README step 2), then reload.':'';
+const sb=setupErr?null:supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ok=r=>{if(r.error)throw r.error;return r.data};
+const sum=a=>a.reduce((x,y)=>x+Number(y),0),fx=n=>Number(n).toFixed(1);
+const ymd=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+const last7=()=>Array.from({length:7},(_,i)=>new Date(Date.now()-(6-i)*864e5));
+const MEALS=['Breakfast','Lunch','Snacks','Dinner'],DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const STAFF=['Unassigned','Electrician','Plumber','Housekeeping','Network team','Warden'];
+const stamp=()=>new Date().toLocaleString([],{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+let me=null,tab='',ROOMS=[],RM={},RATE=8,cf='All',CM={};
+
+function bars(v,l,hi=-1,h=120){const w=Math.max(280,v.length*46),m=Math.max(...v,1)*1.15;
+ return `<svg viewBox="0 0 ${w} ${h+22}" width="100%" role="img" aria-label="Bar chart">`+v.map((x,i)=>{const bh=x/m*h,bx=i*(w/v.length)+6,bw=w/v.length-12;
+ return `<rect x="${bx}" y="${h-bh}" width="${bw}" height="${bh}" rx="4" fill="${i==hi?'var(--pri)':'var(--pri2)'}" stroke="var(--pri)"/><text x="${bx+bw/2}" y="${h-bh-4}" text-anchor="middle">${fx(x)}</text><text x="${bx+bw/2}" y="${h+15}" text-anchor="middle">${l[i]}</text>`}).join('')+'</svg>'}
+function ask(q,def,cb){dlg.innerHTML=`<h3>${esc(q)}</h3><textarea id="ans" rows="3" style="width:100%;margin:10px 0">${esc(def)}</textarea><div class="row"><button class="b" id="okb">Confirm</button><button class="b s" onclick="dlg.close()">Cancel</button></div>`;dlg.showModal();$('#okb').onclick=()=>{const v=$('#ans').value.trim();if(!v)return;dlg.close();cb(v)}}
+function say(m){dlg.innerHTML=`<p>${esc(m)}</p><button class="b" onclick="dlg.close()">OK</button>`;dlg.showModal()}
+const guard=f=>async(...a)=>{try{await f(...a)}catch(e){say(e.message||'Something went wrong')}};
+
+/* ---------- auth ---------- */
+async function showAuth(mode='login'){$('#shell').style.display='none';$('#lo').style.display='none';$('#who').textContent='Sign in to continue';const A=$('#auth');A.style.display='grid';
+ if(mode=='login'){A.innerHTML=`<div class="card"><h2>Welcome back</h2><input id="le" type="email" placeholder="Email" autocomplete="email"><input id="lp" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()"><div class="err" id="lerr"></div><button class="b" onclick="login()">Log in</button><button class="b s" onclick="showAuth('reg')">New student? Request a room</button><button class="b s sm" onclick="resetPw()">Forgot password?</button></div>`;return}
+ let rooms=[];try{rooms=ok(await sb.from('room_availability').select('*').gt('free',0).order('room_no'))}catch(e){}
+ A.innerHTML=`<div class="card"><h2>Request a room</h2><div class="mut">The owner reviews every request. You can use the app once it is approved.</div><input id="rn" placeholder="Full name"><input id="re" type="email" placeholder="Email"><input id="rw" type="password" placeholder="Password (8+ characters)"><select id="rr">${rooms.map(r=>`<option value="${r.id}">Room ${esc(r.room_no)} (${r.free} free)</option>`).join('')||'<option value="">No rooms free</option>'}</select><input id="rp" placeholder="Phone"><input id="ro" placeholder="Course / job"><input id="rg" placeholder="Guardian phone"><div class="err" id="rerr"></div><button class="b" onclick="signup()">Send request</button><button class="b s" onclick="showAuth('login')">Back to login</button></div>`}
+const login=guard(async()=>{const {error}=await sb.auth.signInWithPassword({email:$('#le').value.trim(),password:$('#lp').value});if(error){$('#lerr').textContent=error.message;return}boot()});
+const signup=guard(async()=>{const e=$('#rerr'),n=$('#rn').value.trim(),pw=$('#rw').value;if(!n||!$('#re').value||pw.length<8||!$('#rr').value){e.textContent='Enter name, email, a room and a password of 8+ characters.';return}
+ const {data,error}=await sb.auth.signUp({email:$('#re').value.trim(),password:pw,options:{data:{full_name:n,phone:$('#rp').value,occupation:$('#ro').value,guardian_phone:$('#rg').value,pref_room:$('#rr').value}}});
+ if(error){e.textContent=error.message;return}
+ if(data.session){await sb.auth.signOut()}
+ $('#auth').innerHTML=`<div class="card"><h2>Request sent</h2><p>Thanks ${esc(n)}. ${data.session===null&&!data.user?.confirmed_at?'Check your email to confirm your address, then log in.':'Log in any time to see if the owner has approved you.'}</p><button class="b" onclick="showAuth('login')">Go to login</button></div>`});
+const resetPw=guard(async()=>{const e=$('#le').value.trim();if(!e){$('#lerr').textContent='Type your email first.';return}const {error}=await sb.auth.resetPasswordForEmail(e,{redirectTo:location.href.split('#')[0]});$('#lerr').textContent=error?error.message:'Password reset email sent.'});
+const logout=async()=>{await sb.auth.signOut();me=null;showAuth()};
+
+async function boot(){const {data:{session}}=await sb.auth.getSession();if(!session)return showAuth();
+ me=ok(await sb.from('profiles').select('*').eq('id',session.user.id).single());
+ ROOMS=ok(await sb.from('rooms').select('*').order('room_no').then(r=>r.error?{data:[]}:r));RM=Object.fromEntries(ROOMS.map(r=>[r.id,r]));
+ $('#lo').style.display='';$('#auth').style.display='none';
+ if(me.status!='approved'){$('#shell').style.display='none';$('#who').textContent=me.full_name;$('#auth').style.display='grid';
+  $('#auth').innerHTML=`<div class="card"><h2>${me.status=='pending'?'Waiting for approval':'Request rejected'}</h2><p>${me.status=='pending'?'The owner has not reviewed your request yet. Check back later.':'The owner rejected your request'+(me.reject_reason?': '+esc(me.reject_reason):'.')}</p><button class="b s" onclick="boot()">Check again</button></div>`;return}
+ const t=ok(await sb.from('settings').select('value').eq('key','tariff').maybeSingle());RATE=t?Number(t.value):8;
+ $('#who').textContent=me.role=='owner'?'Owner · '+me.full_name:me.full_name+' · Room '+(RM[me.room_id]?.room_no||'—');
+ $('#shell').style.display='block';tab=tab&&(me.role=='owner'?OT:ST).includes(tab)?tab:(me.role=='owner'?'Overview':'My room');render()}
+
+const OT=['Overview','Rooms','Requests','Complaints','Food','Power','Notices','Visitors'],ST=['My room','Complaints','Food','Notices'];
+async function render(){const T=me.role=='owner'?OT:ST;$('#nav').innerHTML=T.map(t=>`<button class="${t==tab?'on':''}" onclick="tab='${t}';render()">${t}</button>`).join('');
+ $('#app').innerHTML='<p class="mut">Loading…</p>';try{$('#app').innerHTML=await V[tab]()}catch(e){$('#app').innerHTML=`<p class="err">${esc(e.message)}</p>`}}
+
+/* ---------- views ---------- */
+const V={};
+V.Overview=async()=>{const ds=last7(),from=ymd(ds[0]);
+ const [pf,pw,cm,rq]=await Promise.all([sb.from('profiles').select('id,room_id,rent_status').eq('status','approved').eq('role','student'),sb.from('power_readings').select('room_id,reading_date,kwh').gte('reading_date',from),sb.from('complaints').select('status,escalated'),sb.from('profiles').select('id').eq('status','pending')]).then(r=>r.map(ok));
+ const cap=sum(ROOMS.map(r=>r.capacity)),tot=ds.map(d=>sum(pw.filter(p=>p.reading_date==ymd(d)).map(p=>p.kwh))),today=ymd(ds[6]);
+ const byRoom=ROOMS.map(r=>({r,k:sum(pw.filter(p=>p.room_id==r.id&&p.reading_date==today).map(p=>p.kwh))})).sort((a,b)=>b.k-a.k).slice(0,5);
+ const openC=cm.filter(c=>c.status!='Resolved');
+ return `<div class="grid k4"><div class="card"><div class="mut">Occupancy</div><div class="big">${pf.length}/${cap}</div><div class="bar"><i style="width:${cap?pf.length/cap*100:0}%"></i></div></div>
+ <div class="card"><div class="mut">Power today</div><div class="big">${fx(tot[6])} kWh</div><div class="mut">≈ ₹${Math.round(tot[6]*RATE)}</div></div>
+ <div class="card"><div class="mut">Open complaints</div><div class="big">${openC.length}</div><div class="mut">${openC.filter(c=>c.escalated).length} escalated</div></div>
+ <div class="card"><div class="mut">Requests / rent due</div><div class="big">${rq.length} / ${pf.filter(p=>p.rent_status=='Pending').length}</div></div></div>
+ <div class="grid k2 sec"><div class="card"><h3>Power · last 7 days (kWh)</h3>${bars(tot,ds.map(d=>DAYS[(d.getDay()+6)%7]),6)}${pw.length?'':'<p class="mut">No readings yet. Add them in the Power tab.</p>'}</div>
+ <div class="card"><h3>Top rooms today</h3><div class="tw"><table>${byRoom.map(x=>`<tr><td>Room ${esc(x.r.room_no)}</td><td>${fx(x.k)} kWh</td></tr>`).join('')||'<tr><td class="mut">No rooms yet</td></tr>'}</table></div></div></div>`};
+
+V.Rooms=async()=>{const pf=ok(await sb.from('profiles').select('room_id').eq('status','approved'));
+ return `<div class="card"><h3>Add a room</h3><div class="row" style="margin-top:8px"><input id="nr" placeholder="Room no."><input id="nf" type="number" placeholder="Floor" style="width:90px"><input id="nc" type="number" placeholder="Beds" style="width:90px"><label class="row"><input id="na" type="checkbox"> AC</label><button class="b" onclick="addRoom()">Add room</button></div></div>
+ <div class="grid k3 sec">${ROOMS.map(r=>{const n=pf.filter(p=>p.room_id==r.id).length;return `<button class="card room ${n>=r.capacity?'full':''}" onclick="roomModal(${r.id})"><h3>Room ${esc(r.room_no)}</h3><div class="mut">Floor ${r.floor} · ${r.ac?'AC':'Non-AC'}</div><div>${n}/${r.capacity} beds</div></button>`}).join('')||'<p class="mut">No rooms yet. Add one above.</p>'}</div>`};
+const addRoom=guard(async()=>{const n=$('#nr').value.trim();if(!n)return;ok(await sb.from('rooms').insert({room_no:n,floor:+$('#nf').value||1,capacity:+$('#nc').value||2,ac:$('#na').checked}));await boot()});
+const roomModal=guard(async id=>{const from=ymd(last7()[0]);
+ const [mem,pw,cm]=await Promise.all([sb.from('profiles').select('*').eq('room_id',id).eq('status','approved'),sb.from('power_readings').select('reading_date,kwh').eq('room_id',id).gte('reading_date',from),sb.from('complaints').select('*').eq('room_id',id).order('created_at',{ascending:false}).limit(8)]).then(r=>r.map(ok));
+ const ds=last7(),v=ds.map(d=>sum(pw.filter(p=>p.reading_date==ymd(d)).map(p=>p.kwh))),r=RM[id];
+ dlg.innerHTML=`<div class="row" style="justify-content:space-between"><h2>Room ${esc(r.room_no)}</h2><button class="b s sm" onclick="dlg.close()">Close</button></div><h3 class="sec">Members (${mem.length}/${r.capacity})</h3><div class="tw"><table><tr><th>Name</th><th>Phone</th><th>Occupation</th><th>Guardian</th><th>Rent</th><th></th></tr>${mem.map(m=>`<tr><td><b>${esc(m.full_name)}</b></td><td>${esc(m.phone)}</td><td>${esc(m.occupation)}</td><td>${esc(m.guardian_phone)}</td><td><select onchange="setRent('${m.id}',this.value,${id})">${['Paid','Pending'].map(x=>`<option ${x==m.rent_status?'selected':''}>${x}</option>`).join('')}</select></td><td><button class="b s sm" onclick="removeM('${m.id}')">Remove</button></td></tr>`).join('')||'<tr><td class="mut">Empty room</td></tr>'}</table></div>
+ <h3 class="sec">Power · last 7 days (kWh)</h3><div class="card">${bars(v,ds.map(d=>DAYS[(d.getDay()+6)%7]),6,100)}<p class="mut">Week ${fx(sum(v))} kWh · ₹${Math.round(sum(v)*RATE)} · ₹${Math.round(sum(v)*RATE/Math.max(1,mem.length))} per member</p></div>
+ <h3 class="sec">Recent complaints</h3>${cm.map(c=>`<p><span class="tag ${c.status=='Resolved'?'r':c.status=='Open'?'o':'p'}">${c.status}</span> <b>${esc(c.category)}</b> – ${esc(c.description)}</p>`).join('')||'<p class="mut">None.</p>'}`;dlg.showModal()});
+const setRent=guard(async(id,v,room)=>{ok(await sb.from('profiles').update({rent_status:v}).eq('id',id))});
+const removeM=guard(async id=>{ok(await sb.from('profiles').update({room_id:null,status:'rejected',reject_reason:'Removed by owner'}).eq('id',id));dlg.close();render()});
+
+V.Requests=async()=>{const [q,av]=await Promise.all([sb.from('profiles').select('*').in('status',['pending','rejected']).eq('role','student').order('created_at',{ascending:false}),sb.from('room_availability').select('*').gt('free',0).order('room_no')]).then(r=>r.map(ok));
+ const pn=q.filter(x=>x.status=='pending'),rj=q.filter(x=>x.status=='rejected');
+ return `<h3>Waiting for your decision (${pn.length})</h3>`+(pn.map(x=>`<div class="card" style="margin:10px 0"><div class="row" style="justify-content:space-between"><b>${esc(x.full_name)}</b><span class="mut">${new Date(x.created_at).toLocaleDateString()}</span></div><p class="mut">${esc(x.email)} · ${esc(x.occupation)} · Phone ${esc(x.phone)} · Guardian ${esc(x.guardian_phone)}</p>
+ <div class="row">Room <select id="rq_${x.id}">${av.map(r=>`<option value="${r.id}" ${r.id==x.pref_room?'selected':''}>${esc(r.room_no)} (${r.free} free)</option>`).join('')||'<option value="">No vacancy</option>'}</select><button class="b sm" onclick="approve('${x.id}')">Approve</button><button class="b s sm" onclick="rejectQ('${x.id}')">Reject</button></div></div>`).join('')||'<p class="mut">No pending requests.</p>')+
+ (rj.length?`<h3 class="sec">Rejected / removed</h3><div class="card tw"><table>${rj.map(x=>`<tr><td>${esc(x.full_name)}</td><td class="mut">${esc(x.reject_reason)}</td></tr>`).join('')}</table></div>`:'')};
+const approve=guard(async id=>{const rm=+$('#rq_'+id).value;if(!rm){say('Pick a room that has a free bed.');return}
+ const a=ok(await sb.from('room_availability').select('free').eq('id',rm).single());if(a.free<1){say('That room is now full.');return}
+ ok(await sb.from('profiles').update({status:'approved',room_id:rm,joined:ymd(new Date()),reject_reason:null}).eq('id',id));render()});
+const rejectQ=id=>ask('Reason for rejecting (the student will see this)','No bed available',guard(async v=>{ok(await sb.from('profiles').update({status:'rejected',reject_reason:v}).eq('id',id));render()}));
+
+V.Complaints=async()=>{const stu=me.role!='owner',list0=ok(await sb.from('complaints').select('*').order('created_at',{ascending:false}));CM=Object.fromEntries(list0.map(c=>[c.id,c]));
+ const act=c=>c.status!='Resolved',list=list0.filter(c=>cf=='All'||c.status==cf||(cf=='Escalated'&&c.escalated&&act(c))).sort((a,b)=>(b.escalated&&act(b))-(a.escalated&&act(a)));
+ const tg=c=>c.status=='Resolved'?'r':c.status=='Open'?'o':'p';
+ return `<div class="card"><h3>Raise a complaint or query</h3><div class="row" style="margin-top:8px"><select id="room" ${stu?'disabled':''}>${(stu?ROOMS.filter(r=>r.id==me.room_id):ROOMS).map(r=>`<option value="${r.id}">${esc(r.room_no)}</option>`).join('')}</select><select id="type"><option>Complaint</option><option>Query</option></select><select id="cat">${['Electrical','Plumbing','Wi-Fi','Food','Cleaning','Laundry','Security','Other'].map(x=>`<option>${x}</option>`).join('')}</select><select id="pri"><option>Normal</option><option>Urgent</option></select><input id="txt" maxlength="1000" placeholder="Describe the issue" style="flex:1;min-width:200px"><button class="b" onclick="addC()">Submit</button></div></div>
+ <div class="row sec"><b>Show:</b>${['All','Open','In progress','Resolved','Escalated'].map(f=>`<button class="b sm ${f==cf?'':'s'}" onclick="cf='${f}';render()">${f}</button>`).join('')}<span class="mut">${list.length} item(s)</span></div>
+ ${list.map(c=>`<div class="card" style="margin-bottom:10px"><div class="row" style="justify-content:space-between"><div><span class="tag ${tg(c)}">${c.status}</span> <span class="tag">${c.type}</span> ${c.priority=='Urgent'?'<span class="tag o">Urgent</span> ':''}${c.escalated&&act(c)?'<span class="tag o">Escalated</span> ':''}<b>Room ${esc(RM[c.room_id]?.room_no)}</b> · ${esc(c.category)}</div><span class="mut">${new Date(c.created_at).toLocaleDateString()}</span></div>
+ <p style="margin:8px 0">${esc(c.description)}</p><p class="mut">Assigned to: ${esc(c.assigned_to)}${c.resolution?' · Resolution: '+esc(c.resolution):''}</p>
+ <details><summary class="mut">History</summary>${(c.log||[]).map(l=>`<div class="mut">${esc(l)}</div>`).join('')}</details>
+ <div class="row" style="margin-top:8px">${stu?(act(c)&&!c.escalated?`<button class="b s sm" onclick="escalate('${c.id}')">Escalate to owner</button>`:'')+(!act(c)?`<button class="b s sm" onclick="reopen('${c.id}')">Not fixed — reopen</button>`:''):
+ (act(c)?`<select onchange="assign('${c.id}',this.value)">${STAFF.map(x=>`<option ${x==c.assigned_to?'selected':''}>${x}</option>`).join('')}</select>${c.status=='Open'?`<button class="b s sm" onclick="cupd('${c.id}',{status:'In progress'},'Started by owner')">Start working</button>`:''}<button class="b sm" onclick="resolve('${c.id}')">Resolve</button>`:'')}</div></div>`).join('')||'<p class="mut">No items here yet.</p>'}`};
+const addC=guard(async()=>{const t=$('#txt').value.trim();if(!t){$('#txt').focus();return}
+ ok(await sb.from('complaints').insert({room_id:+$('#room').value,type:$('#type').value,category:$('#cat').value,priority:$('#pri').value,description:t,log:[stamp()+' · Raised by '+me.full_name]}));render()});
+const cupd=guard(async(id,patch,msg)=>{const c=CM[id];ok(await sb.from('complaints').update({...patch,log:[...(c.log||[]),stamp()+' · '+msg]}).eq('id',id));render()});
+const assign=(id,v)=>cupd(id,{assigned_to:v},'Assigned to '+v);
+const resolve=id=>ask('How was it resolved?','Fixed by maintenance team',v=>cupd(id,{status:'Resolved',resolution:v},'Resolved: '+v));
+const sact=(id,act,why)=>guard(async()=>{ok(await sb.rpc('student_complaint_action',{cid:id,act,why}));render()})();
+const escalate=id=>ask('Why are you escalating this?','',v=>sact(id,'escalate',v));
+const reopen=id=>ask('What is still wrong?','',v=>sact(id,'reopen',v));
+
+V.Food=async()=>{const today=ymd(new Date()),di=(new Date().getDay()+6)%7,owner=me.role=='owner',from=ymd(last7()[0]);
+ const [menu,sk,rt,np]=await Promise.all([sb.from('menu').select('*'),sb.from('meal_skips').select('*').eq('skip_date',today),sb.from('meal_ratings').select('*').gte('rate_date',from),owner?sb.from('profiles').select('id',{count:'exact',head:true}).eq('status','approved').eq('role','student'):Promise.resolve({data:null,count:0})]).then(r=>{r.slice(0,3).forEach(ok);return r});
+ const M=menu.data,S=sk.data,R=rt.data,N=np.count||0,item=(d,m)=>M.find(x=>x.day==d&&x.meal==m)?.items||'';
+ const tbl=`<div class="card"><h3>Weekly menu</h3><div class="tw"><table><tr><th>Day</th>${MEALS.map(m=>`<th>${m}</th>`).join('')}</tr>${DAYS.map((d,i)=>`<tr class="${i==di?'today':''}"><td><b>${d}</b></td>${MEALS.map(m=>`<td>${owner?`<input value="${esc(item(i,m))}" style="min-width:140px" onchange="saveMenu(${i},'${m}',this.value)">`:esc(item(i,m))||'—'}</td>`).join('')}</tr>`).join('')}</table></div></div>`;
+ const avg=m=>{const x=R.filter(r=>r.meal==m);return x.length?fx(sum(x.map(r=>r.rating))/x.length):'—'};
+ if(owner)return tbl+`<div class="grid k2 sec"><div class="card"><h3>Today's cooking count</h3><p class="mut">${N} residents</p>${MEALS.map(m=>{const s=S.filter(x=>x.meal==m).length;return `<div class="row" style="justify-content:space-between;margin:6px 0"><b>${m}</b><span>cook for ${N-s} <span class="mut">(${s} skipped)</span></span></div>`}).join('')}</div>
+ <div class="card"><h3>Average rating · last 7 days</h3>${MEALS.map(m=>`<div class="row" style="justify-content:space-between;margin:6px 0"><span>${m}</span><b>${avg(m)} / 5</b></div>`).join('')}</div></div>`;
+ return tbl+`<div class="card sec"><h3>Your meals today</h3>${MEALS.map(m=>{const sk=S.some(x=>x.meal==m);return `<div class="row" style="justify-content:space-between;margin:8px 0"><span>${m}</span><span class="row"><button class="b s sm" onclick="toggleSkip('${m}',${sk})">${sk?'Undo skip':'I will skip this'}</button><select onchange="rate('${m}',+this.value)"><option value="">Rate it</option>${[5,4,3,2,1].map(n=>`<option ${R.some(r=>r.user_id==me.id&&r.meal==m&&r.rate_date==today&&r.rating==n)?'selected':''}>${n}</option>`).join('')}</select></span></div>`}).join('')}</div>`};
+const saveMenu=guard(async(d,m,v)=>{ok(await sb.from('menu').upsert({day:d,meal:m,items:v}))});
+const toggleSkip=guard(async(m,was)=>{const t=ymd(new Date());ok(was?await sb.from('meal_skips').delete().eq('user_id',me.id).eq('skip_date',t).eq('meal',m):await sb.from('meal_skips').insert({skip_date:t,meal:m}));render()});
+const rate=guard(async(m,n)=>{if(!n)return;ok(await sb.from('meal_ratings').upsert({user_id:me.id,rate_date:ymd(new Date()),meal:m,rating:n}));say('Thanks for rating '+m+'.')});
+
+V.Power=async()=>{const rd=ok(await sb.from('power_readings').select('*').order('reading_date',{ascending:false}).limit(25));
+ return `<div class="grid k2"><div class="card"><h3>Add a meter reading</h3><div class="row" style="margin-top:8px"><select id="pr">${ROOMS.map(r=>`<option value="${r.id}">Room ${esc(r.room_no)}</option>`).join('')}</select><input id="pd" type="date" value="${ymd(new Date())}"><input id="pk" type="number" step="0.1" min="0" placeholder="kWh used" style="width:110px"><button class="b" onclick="addPw()">Save</button></div><p class="mut">Saving again for the same room and date replaces the earlier reading.</p></div>
+ <div class="card"><h3>Electricity tariff</h3><div class="row" style="margin-top:8px">₹ <input id="tf" type="number" min="1" step="0.5" value="${RATE}" style="width:90px"> per unit<button class="b" onclick="setTariff()">Save</button></div></div></div>
+ <div class="card sec tw"><h3>Recent readings</h3><table><tr><th>Date</th><th>Room</th><th>kWh</th><th>Cost</th></tr>${rd.map(r=>`<tr><td>${r.reading_date}</td><td>${esc(RM[r.room_id]?.room_no)}</td><td>${fx(r.kwh)}</td><td>₹${Math.round(r.kwh*RATE)}</td></tr>`).join('')||'<tr><td class="mut">No readings yet.</td></tr>'}</table></div>`};
+const addPw=guard(async()=>{const k=$('#pk').value;if(k==='')return;ok(await sb.from('power_readings').upsert({room_id:+$('#pr').value,reading_date:$('#pd').value,kwh:+k},{onConflict:'room_id,reading_date'}));render()});
+const setTariff=guard(async()=>{const v=+$('#tf').value;if(!(v>0))return;ok(await sb.from('settings').upsert({key:'tariff',value:String(v)}));RATE=v;render()});
+
+V.Notices=async()=>{const n=ok(await sb.from('notices').select('*').order('created_at',{ascending:false})),o=me.role=='owner';
+ return (o?`<div class="card"><h3>Post a notice</h3><div class="row" style="margin-top:8px"><input id="nt" maxlength="500" placeholder="Write a notice for all residents" style="flex:1;min-width:220px"><button class="b" onclick="addN()">Post notice</button></div></div><div class="sec"></div>`:'')+
+ (n.map(x=>`<div class="card" style="margin-bottom:10px"><div class="row" style="justify-content:space-between"><span>📌 ${esc(x.body)}</span><span class="row"><span class="mut">${new Date(x.created_at).toLocaleDateString()}</span>${o?`<button class="b s sm" onclick="delN('${x.id}')">Delete</button>`:''}</span></div></div>`).join('')||'<p class="mut">No notices right now.</p>')};
+const addN=guard(async()=>{const t=$('#nt').value.trim();if(!t)return;ok(await sb.from('notices').insert({body:t}));render()});
+const delN=guard(async id=>{ok(await sb.from('notices').delete().eq('id',id));render()});
+
+V.Visitors=async()=>{const v=ok(await sb.from('visitors').select('*').order('time_in',{ascending:false}).limit(40)),t=d=>d?new Date(d).toLocaleString([],{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+ return `<div class="card"><h3>Check in a visitor</h3><div class="row" style="margin-top:8px"><input id="vn" placeholder="Visitor name"><input id="vm" placeholder="Meeting whom"><button class="b" onclick="addV()">Check in</button></div></div><div class="card sec tw"><table><tr><th>Visitor</th><th>Meeting</th><th>In</th><th>Out</th></tr>${v.map(x=>`<tr><td>${esc(x.visitor_name)}</td><td>${esc(x.meeting)}</td><td>${t(x.time_in)}</td><td>${x.time_out?t(x.time_out):`<button class="b s sm" onclick="outV('${x.id}')">Check out</button>`}</td></tr>`).join('')||'<tr><td class="mut">No visitors logged yet.</td></tr>'}</table></div>`};
+const addV=guard(async()=>{const a=$('#vn').value.trim(),b=$('#vm').value.trim();if(!a||!b)return;ok(await sb.from('visitors').insert({visitor_name:a,meeting:b}));render()});
+const outV=guard(async id=>{ok(await sb.from('visitors').update({time_out:new Date().toISOString()}).eq('id',id));render()});
+
+V['My room']=async()=>{const ds=last7(),from=ymd(ds[0]);
+ const [rm,pw]=await Promise.all([sb.rpc('get_roommates'),sb.from('power_readings').select('reading_date,kwh').eq('room_id',me.room_id).gte('reading_date',from)]).then(r=>r.map(ok));
+ const r=RM[me.room_id]||{},v=ds.map(d=>sum(pw.filter(p=>p.reading_date==ymd(d)).map(p=>p.kwh)));
+ return `<div class="grid k2"><div class="card"><h3>Hi ${esc(me.full_name.split(' ')[0])} 👋</h3><p class="mut">Room ${esc(r.room_no)} · Floor ${r.floor} · ${r.ac?'AC':'Non-AC'}</p><p>Rent: <span class="tag ${me.rent_status=='Paid'?'r':'p'}">${me.rent_status}</span></p><p class="mut">Joined ${esc(me.joined||'—')}</p><button class="b" onclick="tab='Complaints';render()">Raise a complaint or query</button></div>
+ <div class="card"><h3>Roommates</h3><div class="tw"><table>${rm.map(x=>`<tr><td>${esc(x.full_name)}${x.is_me?' (you)':''}</td><td>${esc(x.occupation)}</td></tr>`).join('')}</table></div></div></div>
+ <div class="card sec"><h3>Your room's power · last 7 days (kWh)</h3>${bars(v,ds.map(d=>DAYS[(d.getDay()+6)%7]),6,100)}<p class="mut">Week ${fx(sum(v))} kWh · your share ≈ ₹${Math.round(sum(v)*RATE/Math.max(1,rm.length))}</p></div>`};
+
+if(!setupErr)sb.auth.onAuthStateChange(ev=>{if(ev=='PASSWORD_RECOVERY'){ask('Enter a new password (8+ characters)','',guard(async v=>{if(v.length<8){say('Use at least 8 characters.');return}ok(await sb.auth.updateUser({password:v}));say('Password updated.')}))}});
+if(setupErr){$('#auth').style.display='grid';$('#auth').innerHTML='<div class="card"><h2>Setup needed</h2><p>'+setupErr+'</p></div>'}else boot().catch(e=>{showAuth();$('#lerr').textContent=e.message});
+</script></body></html>
